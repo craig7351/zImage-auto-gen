@@ -1,0 +1,5 @@
+standing
+sitting
+lying
+kneeling
+squatting

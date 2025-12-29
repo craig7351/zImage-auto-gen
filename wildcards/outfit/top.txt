@@ -1,0 +1,5 @@
+blouse
+t-shirt
+jacket
+sweater
+tank top

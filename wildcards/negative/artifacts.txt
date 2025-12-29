@@ -1,0 +1,4 @@
+jpeg artifacts
+watermark
+signature
+username

@@ -1,0 +1,4 @@
+high contrast
+soft contrast
+low key
+high key

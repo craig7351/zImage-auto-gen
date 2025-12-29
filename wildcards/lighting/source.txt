@@ -1,0 +1,4 @@
+natural light
+rim light
+studio light
+sunlight

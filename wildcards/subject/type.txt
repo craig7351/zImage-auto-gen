@@ -1,0 +1,5 @@
+human
+elf
+android
+animal
+monster

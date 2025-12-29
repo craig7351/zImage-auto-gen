@@ -1,0 +1,5 @@
+street
+park
+beach
+forest
+cityscape

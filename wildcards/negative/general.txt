@@ -1,0 +1,4 @@
+lowres
+blurry
+bad anatomy
+bad quality

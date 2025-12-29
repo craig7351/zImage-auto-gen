@@ -1,0 +1,5 @@
+leather
+denim
+silk
+latex
+cotton

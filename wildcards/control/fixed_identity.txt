@@ -1,0 +1,3 @@
+
+actor: anne hathaway
+character: hatsune miku

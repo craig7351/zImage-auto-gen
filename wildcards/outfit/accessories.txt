@@ -1,0 +1,5 @@
+glasses
+earrings
+necklace
+hat
+mask

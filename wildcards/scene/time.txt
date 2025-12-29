@@ -1,0 +1,5 @@
+morning
+sunset
+night
+noon
+dusk

@@ -1,0 +1,5 @@
+sneakers
+boots
+heels
+sandals
+loafers

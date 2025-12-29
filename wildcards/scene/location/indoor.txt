@@ -1,0 +1,5 @@
+café
+office
+classroom
+bedroom
+library

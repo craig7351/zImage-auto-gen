@@ -1,0 +1,5 @@
+student
+office_worker
+knight
+mage
+nurse
