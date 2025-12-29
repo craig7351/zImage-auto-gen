@@ -35,25 +35,28 @@ structure_en = {
         "hands.txt": ["hands casually in pockets", "holding a smartphone", "making a V-sign", "arms crossed defensively"]
     },
     "outfit": {
-        "theme": {
+        "sets": {
             "casual.txt": ["oversized hoodie", "distressed jeans", "graphic t-shirt", "denim shorts"],
             "school.txt": ["classic school uniform", "sailor uniform (seifuku)", "preppy blazer uniform", "traditional serafuku"],
             "business.txt": ["tailored business suit", "smart blazer", "tight pencil skirt", "silk tie"],
             "dress.txt": ["flowing long dress", "elegant cocktail dress", "light summer dress", "formal ball gown"],
             "sporty.txt": ["fitted sportswear", "athletic tracksuit", "gym workout clothes", "flexible yoga pants"],
-            "traditional.txt": ["elaborate kimono", "flowimg hanfu", "elegant cheongsam", "summer yukata"]
+            "traditional.txt": ["elaborate kimono", "flowimg hanfu", "elegant cheongsam", "summer yukata"],
+            "onepiece.txt": ["floral dress", "stylish coat dress", "french maid uniform", "nurse uniform"]
         },
-        "top.txt": ["chiffon blouse", "cotton t-shirt", "leather jacket", "knitted sweater", "sleeveless tank top"],
-        "bottom.txt": ["pleated skirt", "casual shorts", "formal pants", "mini pleated skirt", "tight leggings"],
-        "onepiece.txt": ["floral dress", "stylish coat dress", "french maid uniform", "nurse uniform"],
-        "shoes.txt": ["high-top sneakers", "leather boots", "high heels", "summer sandals", "classic loafers"],
-        "accessories.txt": ["stylish glasses", "dangling earrings", "pearl necklace", "wide-brimmed hat", "mysterious mask"],
-        "color_palette.txt": ["black and white monochrome", "soft pastel colors", "bright vivid colors", "dark moody theme"],
-        "material.txt": ["studded leather", "blue denim", "smooth silk", "shiny latex", "soft cotton"]
+        "garments": {
+            "top.txt": ["chiffon blouse", "cotton t-shirt", "leather jacket", "knitted sweater", "sleeveless tank top"],
+            "bottom.txt": ["pleated skirt", "casual shorts", "formal pants", "mini pleated skirt", "tight leggings"],
+            "shoes.txt": ["high-top sneakers", "leather boots", "high heels", "summer sandals", "classic loafers"],
+            "accessories.txt": ["stylish glasses", "dangling earrings", "pearl necklace", "wide-brimmed hat", "mysterious mask"]
+        },
+        "attributes": {
+            "color_palette.txt": ["black and white monochrome", "soft pastel colors", "bright vivid colors", "dark moody theme"],
+            "material.txt": ["studded leather", "blue denim", "smooth silk", "shiny latex", "soft cotton"]
+        }
     },
     "pose": {
-        "base.txt": ["standing confidently", "sitting elegantly", "lying down comfortably", "kneeling gracefully", "squatting low", "floating weightlessly", "leaning against wall", "crouching in stealth", "reclining on sofa"],
-        "action.txt": ["walking briskly", "running fast", "dancing gracefully", "fighting stance", "jumping high", "flying in sky", "swimming underwater", "reading a book intently", "eating delicious food", "drinking coffee", "aiming and shooting", "casting magic spell", "singing passionately"],
+        "base.txt": ["standing confidently", "sitting elegantly", "lying down comfortably", "kneeling gracefully", "squatting low", "floating weightlessly", "leaning against wall", "crouching in stealth", "reclining on sofa", "walking briskly", "running fast", "dancing gracefully", "fighting stance", "jumping high", "flying in sky", "swimming underwater", "reading a book intently", "eating delicious food", "drinking coffee", "aiming and shooting", "casting magic spell", "singing passionately"],
         "hand_pose.txt": ["waving hello", "peace sign", "pointing finger", "reaching out hand", "holding a weapon tightly", "hands resting on hips", "crossed arms", "military salute", "making heart shape with hands", "praying hands"],
         "dynamic.txt": ["hair flowing in wind", "dynamic motion blur", "strong wind blowing", "floating in zero gravity", "suspended in mid-air", "dramatic camera angle", "extreme perspective distortion", "dramatic foreshortening", "explosive background effect"]
     },
@@ -65,7 +68,7 @@ structure_en = {
         "time.txt": ["early morning sunrise", "golden sunset", "starry night", "bright noon", "twilight dusk"],
         "weather.txt": ["bright sunny day", "heavy rainy day", "falling snow", "overcast cloudy", "thunderstorm"],
         "season.txt": ["blooming spring", "colorful autumn", "hot summer", "cold winter"],
-        "background_detail.txt": ["soft bokeh background", "crowded busy street", "cluttered messy room", "clean minimalist background"],
+        "background_detail.txt": ["soft bokeh background", "clean minimalist background", "colorful abstract background", "dark moody background", "bright high-key background", "intricate pattern background"],
         "props.txt": ["glowing neon signs", "bookshelves filled with books", "blooming flowers", "vintage furniture"]
     },
     "camera": {
@@ -135,25 +138,28 @@ structure_zh = {
         "hands.txt": ["雙手插口袋", "拿著智慧型手機", "比YA手勢", "雙手防衛性交叉"]
     },
     "outfit": {
-        "theme": {
+        "sets": {
             "casual.txt": ["寬鬆帽T", "破損牛仔褲", "圖案T恤", "牛仔短褲"],
             "school.txt": ["經典學校制服", "水手服", "學院風西裝制服", "傳統水手服"],
             "business.txt": ["量身訂製西裝", "俐落西裝外套", "緊身鉛筆裙", "絲質領帶"],
             "dress.txt": ["飄逸長洋裝", "優雅雞尾酒禮服", "清爽夏季洋裝", "正式晚禮服"],
             "sporty.txt": ["合身運動服", "田徑服", "健身房運動服", "彈性瑜珈褲"],
-            "traditional.txt": ["華麗和服", "飄逸漢服", "優雅旗袍", "夏季浴衣"]
+            "traditional.txt": ["華麗和服", "飄逸漢服", "優雅旗袍", "夏季浴衣"],
+            "onepiece.txt": ["碎花洋裝", "時尚大衣式洋裝", "法式女僕裝", "護士制服"]
         },
-        "top.txt": ["雪紡襯衫", "純棉T恤", "皮夾克", "針織毛衣", "無袖背心"],
-        "bottom.txt": ["百褶裙", "休閒短褲", "正式長褲", "迷你百褶裙", "緊身內搭褲"],
-        "onepiece.txt": ["碎花洋裝", "時尚大衣式洋裝", "法式女僕裝", "護士制服"],
-        "shoes.txt": ["高筒運動鞋", "皮革靴子", "高跟鞋", "夏季涼鞋", "經典樂福鞋"],
-        "accessories.txt": ["時尚眼鏡", "垂墜耳環", "珍珠項鍊", "寬簷帽", "神秘面具"],
-        "color_palette.txt": ["黑白單色系", "柔和粉色系", "鮮豔亮色系", "暗黑陰鬱色系"],
-        "material.txt": ["鉚釘皮革", "藍色丹寧", "柔順絲綢", "亮面乳膠", "柔軟棉質"]
+        "garments": {
+            "top.txt": ["雪紡襯衫", "純棉T恤", "皮夾克", "針織毛衣", "無袖背心"],
+            "bottom.txt": ["百褶裙", "休閒短褲", "正式長褲", "迷你百褶裙", "緊身內搭褲"],
+            "shoes.txt": ["高筒運動鞋", "皮革靴子", "高跟鞋", "夏季涼鞋", "經典樂福鞋"],
+            "accessories.txt": ["時尚眼鏡", "垂墜耳環", "珍珠項鍊", "寬簷帽", "神秘面具"]
+        },
+        "attributes": {
+            "color_palette.txt": ["黑白單色系", "柔和粉色系", "鮮豔亮色系", "暗黑陰鬱色系"],
+            "material.txt": ["鉚釘皮革", "藍色丹寧", "柔順絲綢", "亮面乳膠", "柔軟棉質"]
+        }
     },
     "pose": {
-        "base.txt": ["自信站立", "優雅坐姿", "舒適躺臥", "優雅跪姿", "低蹲", "失重漂浮", "倚靠牆壁", "隱密蹲伏", "斜躺在沙發"],
-        "action.txt": ["輕快走路", "快速奔跑", "優雅跳舞", "戰鬥架勢", "高高跳起", "在空中飛行", "在水下游泳", "專注閱讀", "享用美食", "喝咖啡", "瞄準射擊", "施展魔法", "熱情歌唱"],
+        "base.txt": ["自信站立", "優雅坐姿", "舒適躺臥", "優雅跪姿", "低蹲", "失重漂浮", "倚靠牆壁", "隱密蹲伏", "斜躺在沙發", "輕快走路", "快速奔跑", "優雅跳舞", "戰鬥架勢", "高高跳起", "在空中飛行", "在水下游泳", "專注閱讀", "享用美食", "喝咖啡", "瞄準射擊", "施展魔法", "熱情歌唱"],
         "hand_pose.txt": ["揮手打招呼", "比YA", "手指指向前方", "伸手觸摸", "緊握武器", "雙手叉腰", "雙手交叉", "軍禮", "雙手比愛心", "雙手合十祈禱"],
         "dynamic.txt": ["頭髮隨風飄動", "強烈動態模糊", "強風吹拂", "零重力漂浮", "懸浮在半空", "戲劇性鏡頭角度", "透視極度變形", "透視縮短", "爆炸背景特效"]
     },
@@ -165,7 +171,7 @@ structure_zh = {
         "time.txt": ["清晨日出", "金黃日落", "星空夜晚", "明亮正午", "暮色黃昏"],
         "weather.txt": ["晴朗豔陽天", "傾盆大雨", "飄落白雪", "陰霾多雲", "雷雨交加"],
         "season.txt": ["百花盛開春天", "多彩楓紅秋天", "炎熱夏天", "寒冷冬天"],
-        "background_detail.txt": ["柔和散景背景", "擁擠繁忙街道", "雜亂的房間", "乾淨極簡背景"],
+        "background_detail.txt": ["柔和散景背景", "乾淨極簡背景", "多彩抽象背景", "暗黑氛圍背景", "明亮高調背景", "複雜紋理背景"],
         "props.txt": ["發光霓虹燈招牌", "擺滿書的書架", "盛開花朵", "復古家具"]
     },
     "camera": {
