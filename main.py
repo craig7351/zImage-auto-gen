@@ -5,6 +5,7 @@ import os
 import sys
 import glob
 import time
+import re
 import random
 from tkinter import filedialog, messagebox
 from comfy_api import ComfyClient
@@ -23,13 +24,15 @@ TRANSLATIONS = {
         "preview": "Prompt Preview:",
         "sync": "Sync",
         "generate": "GENERATE",
+        "stop": "STOP",
         "logs": "Logs:",
         "generating": "Generating...",
         "error_conn": "Error: IP and Port are required.",
         "ready": "GENERATE",
         "no_wildcards": "No wildcards found.",
         "batch": "Count:",
-        "conn_start": "Connecting..."
+        "conn_start": "Connecting...",
+        "stopped": "Generation stopped by user."
     },
     "zh": {
         "title": "ComfyUI 客戶端 - Z Image Turbo",
@@ -40,13 +43,15 @@ TRANSLATIONS = {
         "preview": "提示詞預覽:",
         "sync": "同步",
         "generate": "開始生成",
+        "stop": "停止",
         "logs": "執行紀錄:",
         "generating": "生成中...",
         "error_conn": "錯誤: 需要輸入 IP 和 Port",
         "ready": "開始生成",
         "no_wildcards": "找不到 Wildcards 資料。",
         "batch": "張數:",
-        "conn_start": "連線中..."
+        "conn_start": "連線中...",
+        "stopped": "已由使用者停止生成。"
     }
 }
 
@@ -91,10 +96,13 @@ class App(ctk.CTk):
         self.lang = "zh" 
         self.wildcards = {} 
         self.selections = {} 
+        self.stop_requested = False
         
         self.current_category = None
         self.nav_buttons = {} 
         self.category_frames = {} 
+        self.checkbox_vars = {} 
+        self.comboboxes = {} 
 
         self.title("ComfyUI Client")
         self.geometry("1000x850") 
@@ -132,10 +140,11 @@ class App(ctk.CTk):
 
     def load_wildcards_and_refresh(self):
         self.wildcards = {}
-        # Keep selections if keys match? For now reset to be safe
         self.selections = {}
-        dir_name = "wildcards_zh" if self.lang == "zh" else "wildcards_en"
+        self.checkbox_vars = {}
+        self.comboboxes = {}
         
+        dir_name = "wildcards_zh" if self.lang == "zh" else "wildcards_en"
         base_dir = dir_name
         if not os.path.exists(base_dir):
             if os.path.exists("wildcards"): base_dir = "wildcards"
@@ -223,7 +232,6 @@ class App(ctk.CTk):
         
         self.fixed_prompt_text = ctk.CTkTextbox(self.right_panel, height=60)
         self.fixed_prompt_text.pack(pady=5, fill="x", padx=5)
-        # Re-trigger update when typing
         self.fixed_prompt_text.bind("<KeyRelease>", lambda e: self.update_prompt_text())
 
         # Preview
@@ -241,6 +249,9 @@ class App(ctk.CTk):
         
         self.generate_btn = ctk.CTkButton(self.btn_frame, text="", fg_color="green", height=40, command=self.start_generation)
         self.generate_btn.pack(side="left", fill="x", expand=True, padx=2)
+        
+        self.stop_btn = ctk.CTkButton(self.btn_frame, text="", fg_color="red", hover_color="darkred", height=40, command=self.stop_generation)
+        self.stop_btn.pack(side="left", padx=2)
 
         self.logs_label = ctk.CTkLabel(self.right_panel, text="", anchor="w")
         self.logs_label.pack(pady=(10,0), anchor="w", padx=5)
@@ -251,18 +262,11 @@ class App(ctk.CTk):
         # --- Left Panel Widgets (Nav + Content) ---
         self.nav_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
         self.nav_frame.pack(side="top", fill="x", pady=5)
-        
-        # We will pack the ScrollableFrames directly into left_panel below nav_frame
 
     def rebuild_navigation(self):
-        # Explicit clean of Navigation Frame
-        for widget in self.nav_frame.winfo_children():
-            widget.destroy()
-        
-        # Robust clean of Left Panel content
+        for widget in self.nav_frame.winfo_children(): widget.destroy()
         for widget in self.left_panel.winfo_children():
-            if widget != self.nav_frame:
-                widget.destroy()
+            if widget != self.nav_frame: widget.destroy()
         
         self.category_frames.clear()
         self.nav_buttons.clear()
@@ -274,68 +278,93 @@ class App(ctk.CTk):
         sorted_cats = sorted(self.wildcards.keys())
         sorted_cats = sorted(sorted_cats, key=lambda x: CATEGORIES_ORDER.index(x) if x in CATEGORIES_ORDER else 99)
 
-        # Create Navigation Buttons (Grid)
+        # Nav Buttons
         cols = 3
         for i, category in enumerate(sorted_cats):
             btn_text = self.get_category_label(category)
-            
-            row = i // cols
-            col = i % cols
-            
-            btn = ctk.CTkButton(self.nav_frame, text=btn_text, 
-                                fg_color="gray", 
-                                command=lambda c=category: self.show_category(c))
+            row, col = i // cols, i % cols
+            btn = ctk.CTkButton(self.nav_frame, text=btn_text, fg_color="gray", command=lambda c=category: self.show_category(c))
             btn.grid(row=row, column=col, padx=2, pady=2, sticky="ew")
-            
             self.nav_buttons[category] = btn
 
-            # Create Content Frame (Directly in left_panel)
+            # Content Frame
             frame = ctk.CTkScrollableFrame(self.left_panel)
             self.category_frames[category] = frame
             
-            # Populate Content
+            # Content items
             items = self.wildcards[category]
             sorted_keys = sorted(items.keys())
             
             for key in sorted_keys:
                 options = items[key]
                 label_text = self.get_label(key)
+                full_key = f"{category}/{key}" 
                 
                 row_frame = ctk.CTkFrame(frame, fg_color="transparent")
                 row_frame.pack(side="top", fill="x", pady=2)
                 
-                ctk.CTkLabel(row_frame, text=label_text, width=100, anchor="e").pack(side="left", padx=5)
+                rand_var = ctk.IntVar()
+                seq_var = ctk.IntVar()
+                self.checkbox_vars[full_key] = {"r": rand_var, "s": seq_var}
+
+                cb_r = ctk.CTkCheckBox(row_frame, text="?", width=24, checkbox_width=18, variable=rand_var,
+                                       command=lambda k=full_key: self.on_checkbox_toggle(k, "r"))
+                cb_r.pack(side="left", padx=(5,2))
                 
-                full_key = f"{category}/{key}"
-                combo = ctk.CTkComboBox(row_frame, values=options, width=250, 
-                                        command=lambda val, k=full_key: self.on_selection_change(k, val))
+                cb_s = ctk.CTkCheckBox(row_frame, text="S", width=24, checkbox_width=18, variable=seq_var,
+                                       command=lambda k=full_key: self.on_checkbox_toggle(k, "s"))
+                cb_s.pack(side="left", padx=(0,5))
+                
+                ctk.CTkLabel(row_frame, text=label_text, width=80, anchor="e").pack(side="left", padx=2)
+                
+                combo = ctk.CTkComboBox(row_frame, values=options, width=200, 
+                                        command=lambda val, k=full_key: self.on_combo_change(k, val))
                 combo.set("")
                 combo.pack(side="left", fill="x", expand=True, padx=5)
+                
+                self.comboboxes[full_key] = combo
                 self.selections[full_key] = ""
 
-        # Configure Grid Weights
-        for i in range(cols):
-            self.nav_frame.grid_columnconfigure(i, weight=1)
+        for i in range(cols): self.nav_frame.grid_columnconfigure(i, weight=1)
 
         self.update_ui_text()
-        
-        if sorted_cats:
-            self.show_category(sorted_cats[0])
+        if sorted_cats: self.show_category(sorted_cats[0])
+
+    def on_checkbox_toggle(self, key, mode):
+        vars = self.checkbox_vars[key]
+        r_val = vars["r"].get()
+        s_val = vars["s"].get()
+        combo = self.comboboxes[key]
+
+        if mode == "r" and r_val == 1:
+            vars["s"].set(0) # Uncheck S
+            self.selections[key] = f"__RANDOM__{key}__"
+            combo.configure(state="disabled")
+        elif mode == "s" and s_val == 1:
+            vars["r"].set(0) # Uncheck R
+            self.selections[key] = f"__SEQUENTIAL__{key}__"
+            combo.configure(state="disabled")
+        else:
+            self.selections[key] = combo.get()
+            combo.configure(state="normal")
+            
+        self.update_prompt_text()
+
+    def on_combo_change(self, key, value):
+        vars = self.checkbox_vars[key]
+        if vars["r"].get() == 0 and vars["s"].get() == 0:
+            self.selections[key] = value
+            self.update_prompt_text()
 
     def show_category(self, category):
-        # Hide all first
-        for frame in self.category_frames.values():
-            frame.pack_forget()
-        
+        for frame in self.category_frames.values(): frame.pack_forget()
         if category in self.category_frames:
             self.category_frames[category].pack(side="top", fill="both", expand=True, padx=2, pady=2)
-            
+        
         self.current_category = category
         for cat, btn in self.nav_buttons.items():
-            if cat == category:
-                 btn.configure(fg_color=["#3B8ED0", "#1F6AA5"]) 
-            else:
-                 btn.configure(fg_color="transparent", border_width=1, text_color=("gray10", "gray90")) 
+            if cat == category: btn.configure(fg_color=["#3B8ED0", "#1F6AA5"]) 
+            else: btn.configure(fg_color="transparent", border_width=1, text_color=("gray10", "gray90")) 
 
     def on_lang_change(self, value):
         self.lang = "zh" if value == "中文" else "en"
@@ -352,12 +381,9 @@ class App(ctk.CTk):
         self.preview_label.configure(text=self.get_text("preview"))
         self.refresh_btn.configure(text=self.get_text("sync"))
         self.generate_btn.configure(text=self.get_text("ready"))
+        self.stop_btn.configure(text=self.get_text("stop"))
         self.logs_label.configure(text=self.get_text("logs"))
         self.batch_label.configure(text=self.get_text("batch"))
-
-    def on_selection_change(self, key, value):
-        self.selections[key] = value
-        self.update_prompt_text()
 
     def update_prompt_text(self):
         bucket = {c: [] for c in CATEGORIES_ORDER}
@@ -365,26 +391,29 @@ class App(ctk.CTk):
         
         for full_key, val in self.selections.items():
             if not val: continue
+            
+            display_val = val
+            if val.startswith("__RANDOM__"):
+                label_key = full_key.split("/", 1)[1]
+                display_val = f"<Random: {self.get_label(label_key)}>"
+            elif val.startswith("__SEQUENTIAL__"):
+                label_key = full_key.split("/", 1)[1]
+                display_val = f"<Seq: {self.get_label(label_key)}>"
+
             cat = full_key.split("/")[0]
-            if cat in bucket:
-                bucket[cat].append(val)
-            else:
-                others.append(val)
+            if cat in bucket: bucket[cat].append(display_val)
+            else: others.append(display_val)
         
         final_parts = []
         for cat in CATEGORIES_ORDER:
-            if bucket[cat]:
-                final_parts.extend(bucket[cat])
+            if bucket[cat]: final_parts.extend(bucket[cat])
         final_parts.extend(others)
         
-        # Get Fixed Prompt
         fixed = self.fixed_prompt_text.get("0.0", "end").strip()
         
         prompt_parts = []
-        if fixed:
-            prompt_parts.append(fixed)
-        if final_parts:
-            prompt_parts.extend(final_parts)
+        if fixed: prompt_parts.append(fixed)
+        if final_parts: prompt_parts.extend(final_parts)
             
         prompt_str = ", ".join(prompt_parts)
         self.prompt_text.delete("0.0", "end")
@@ -402,29 +431,50 @@ class App(ctk.CTk):
             self.log_text.insert("end", message + "\n")
             self.log_text.see("end")
             self.log_text.configure(state="disabled")
-        except:
-            pass
+        except: pass
+
+    def stop_generation(self):
+        self.stop_requested = True
+        self.log(self.get_text("stopped"))
 
     def start_generation(self):
         ip = self.ip_entry.get()
         port = self.port_entry.get()
         output_dir = self.output_entry.get()
-        prompt = self.prompt_text.get("0.0", "end").strip()
         
-        try:
-            batch_count = int(self.batch_combo.get())
-        except:
-            batch_count = 1
+        bucket = {c: [] for c in CATEGORIES_ORDER}
+        others = []
+        for full_key, val in self.selections.items():
+            if not val: continue
+            cat = full_key.split("/")[0]
+            if cat in bucket: bucket[cat].append(val)
+            else: others.append(val)
+        
+        final_parts = []
+        for cat in CATEGORIES_ORDER:
+            if bucket[cat]: final_parts.extend(bucket[cat])
+        final_parts.extend(others)
+        
+        fixed = self.fixed_prompt_text.get("0.0", "end").strip()
+        prompt_parts = []
+        if fixed: prompt_parts.append(fixed)
+        if final_parts: prompt_parts.extend(final_parts)
+        
+        raw_prompt_template = ", ".join(prompt_parts)
+        
+        try: batch_count = int(self.batch_combo.get())
+        except: batch_count = 1
 
         if not ip or not port:
             self.log(self.get_text("error_conn"))
             return
 
+        self.stop_requested = False
         self.generate_btn.configure(state="disabled", text=self.get_text("generating"))
-        thread = threading.Thread(target=self.run_generation, args=(ip, port, output_dir, prompt, batch_count))
+        thread = threading.Thread(target=self.run_generation, args=(ip, port, output_dir, raw_prompt_template, batch_count))
         thread.start()
 
-    def run_generation(self, ip, port, output_dir, prompt, batch_count):
+    def run_generation(self, ip, port, output_dir, prompt_template, batch_count):
         try:
             client = ComfyClient(server_address=f"{ip}:{port}")
             self.log(f"{self.get_text('conn_start')} {ip}:{port}...")
@@ -434,7 +484,35 @@ class App(ctk.CTk):
                  return
 
             for i in range(batch_count):
+                if self.stop_requested:
+                    self.log("Batch stopped.")
+                    break
+
                 self.log(f"--- Batch {i+1}/{batch_count} ---")
+                
+                current_prompt = prompt_template
+                
+                random_matches = re.findall(r"__RANDOM__(.*?)__", current_prompt)
+                for match_key in random_matches:
+                    cat, key = match_key.split("/", 1)
+                    if cat in self.wildcards and key in self.wildcards[cat]:
+                        options = self.wildcards[cat][key]
+                        valid_options = [o for o in options if o]
+                        if valid_options:
+                            choice = random.choice(valid_options)
+                            current_prompt = current_prompt.replace(f"__RANDOM__{match_key}__", choice)
+                
+                seq_matches = re.findall(r"__SEQUENTIAL__(.*?)__", current_prompt)
+                for match_key in seq_matches:
+                    cat, key = match_key.split("/", 1)
+                    if cat in self.wildcards and key in self.wildcards[cat]:
+                        options = self.wildcards[cat][key]
+                        valid_options = [o for o in options if o]
+                        if valid_options:
+                            choice = valid_options[i % len(valid_options)]
+                            current_prompt = current_prompt.replace(f"__SEQUENTIAL__{match_key}__", choice)
+
+                self.log(f"Prompt: {current_prompt[:50]}...")
                 
                 seed_val = random.randint(1, 10**15)
                 
@@ -443,7 +521,7 @@ class App(ctk.CTk):
                     "40": {"inputs": {"vae_name": "ae.safetensors"}, "class_type": "VAELoader"},
                     "46": {"inputs": {"unet_name": "z_image_turbo_bf16.safetensors", "weight_dtype": "default"}, "class_type": "UNETLoader"},
                     "41": {"inputs": {"width": 1024, "height": 1024, "batch_size": 1}, "class_type": "EmptySD3LatentImage"},
-                    "45": {"inputs": {"text": prompt, "clip": ["39", 0]}, "class_type": "CLIPTextEncode"},
+                    "45": {"inputs": {"text": current_prompt, "clip": ["39", 0]}, "class_type": "CLIPTextEncode"},
                     "42": {"inputs": {"conditioning": ["45", 0]}, "class_type": "ConditioningZeroOut"},
                     "47": {"inputs": {"model": ["46", 0], "shift": 3.0}, "class_type": "ModelSamplingAuraFlow"},
                     "44": {"inputs": {"model": ["47", 0], "positive": ["45", 0], "negative": ["42", 0], "latent_image": ["41", 0], 
@@ -457,7 +535,7 @@ class App(ctk.CTk):
                 for f in result_files:
                     self.log(f"Saved: {os.path.basename(f)}")
                 
-            self.log("All tasks completed!")
+            self.log("All tasks completed or stopped.")
                 
         except Exception as e:
             self.log(f"Error: {str(e)}")
