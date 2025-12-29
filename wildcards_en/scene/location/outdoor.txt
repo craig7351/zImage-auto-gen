@@ -1,5 +1,11 @@
-street
-park
-beach
-forest
-cityscape
+bustling city street
+peaceful park
+sunny beach
+dense forest
+futuristic cityscape
+neon-lit futuristic city
+glowing magical forest
+rainy cyberpunk street
+vast desert dunes
+snowy mountain peak
+deep underwater coral reef

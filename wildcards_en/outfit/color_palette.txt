@@ -1,4 +1,4 @@
-monochrome
-pastel colors
-vivid colors
-dark theme
+black and white monochrome
+soft pastel colors
+bright vivid colors
+dark moody theme

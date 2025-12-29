@@ -1,5 +1,5 @@
-asian
-caucasian
-latinx
-african
-middle_eastern
+East Asian descent
+Caucasian descent
+Latin American descent
+African descent
+Middle Eastern descent

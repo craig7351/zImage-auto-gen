@@ -1,4 +1,4 @@
-high contrast
+high contrast shadows
 soft contrast
-low key
-high key
+low key darkness
+high key brightness

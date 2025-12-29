@@ -1,5 +1,5 @@
-student
-office_worker
-knight
-mage
-nurse
+diligent student
+busy office worker
+armored knight
+arcane mage
+caring nurse

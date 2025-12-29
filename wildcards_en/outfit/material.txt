@@ -1,5 +1,5 @@
-leather
-denim
-silk
-latex
-cotton
+studded leather
+blue denim
+smooth silk
+shiny latex
+soft cotton

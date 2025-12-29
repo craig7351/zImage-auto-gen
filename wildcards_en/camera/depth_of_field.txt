@@ -1,3 +1,4 @@
-shallow DOF
-bokeh
-deep focus
+shallow depth of field (blurred background)
+creamy bokeh
+deep focus (everything sharp)
+dynamic motion blur

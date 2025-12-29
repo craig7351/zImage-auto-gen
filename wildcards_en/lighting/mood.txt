@@ -1,4 +1,12 @@
-cinematic lighting
-soft light
-dramatic lighting
-dark and moody
+cinematic movie lighting
+soft diffused light
+dramatic high-contrast lighting
+dark and moody atmosphere
+hazy volumetric lighting
+golden hour warm glow
+blue hour cool tones
+vibrant cyberpunk lighting
+artistic rembrandt lighting
+glamorous butterfly lighting
+chiaroscuro light and shadow
+subtle ambient occlusion

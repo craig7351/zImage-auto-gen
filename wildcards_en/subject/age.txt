@@ -1,5 +1,5 @@
-teen
-adult
-mature
-child
-elderly
+energetic teen
+young adult
+mature woman
+small child
+wise elderly

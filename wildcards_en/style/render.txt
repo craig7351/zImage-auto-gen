@@ -1,4 +1,9 @@
-ultra detailed
-high quality
-8k
-photorealistic
+ultra detailed 8k
+high quality masterpiece
+8k resolution
+photorealistic texturing
+unreal engine 5 render
+vray raytracing
+octane render path tracing
+digital matte painting
+video game concept art

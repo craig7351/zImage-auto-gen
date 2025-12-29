@@ -1,5 +1,5 @@
-blouse
-t-shirt
-jacket
-sweater
-tank top
+chiffon blouse
+cotton t-shirt
+leather jacket
+knitted sweater
+sleeveless tank top

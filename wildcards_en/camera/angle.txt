@@ -1,4 +1,9 @@
-low angle
-high angle
-dutch angle
-straight on
+worm's eye low angle
+bird's eye high angle
+tilted dutch angle
+straight-on eye level
+top-down bird's eye view
+ground level worm's eye view
+aerial drone view
+over-the-shoulder perspective
+dynamic action angle

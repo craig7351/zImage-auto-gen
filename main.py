@@ -32,7 +32,8 @@ TRANSLATIONS = {
         "no_wildcards": "No wildcards found.",
         "batch": "Count:",
         "conn_start": "Connecting...",
-        "stopped": "Generation stopped by user."
+        "stopped": "Generation stopped by user.",
+        "download_log": "Download Log"
     },
     "zh": {
         "title": "ComfyUI 客戶端 - Z Image Turbo",
@@ -51,7 +52,8 @@ TRANSLATIONS = {
         "no_wildcards": "找不到 Wildcards 資料。",
         "batch": "張數:",
         "conn_start": "連線中...",
-        "stopped": "已由使用者停止生成。"
+        "stopped": "已由使用者停止生成。",
+        "download_log": "下載紀錄"
     }
 }
 
@@ -253,8 +255,14 @@ class App(ctk.CTk):
         self.stop_btn = ctk.CTkButton(self.btn_frame, text="", fg_color="red", hover_color="darkred", height=40, command=self.stop_generation)
         self.stop_btn.pack(side="left", padx=2)
 
-        self.logs_label = ctk.CTkLabel(self.right_panel, text="", anchor="w")
-        self.logs_label.pack(pady=(10,0), anchor="w", padx=5)
+        self.log_header_frame = ctk.CTkFrame(self.right_panel, fg_color="transparent")
+        self.log_header_frame.pack(pady=(10,0), fill="x", padx=5)
+
+        self.logs_label = ctk.CTkLabel(self.log_header_frame, text="", anchor="w")
+        self.logs_label.pack(side="left")
+        
+        self.download_log_btn = ctk.CTkButton(self.log_header_frame, text="", width=100, height=24, command=self.download_log)
+        self.download_log_btn.pack(side="right")
         
         self.log_text = ctk.CTkTextbox(self.right_panel)
         self.log_text.pack(pady=5, fill="both", expand=True, padx=5)
@@ -383,6 +391,7 @@ class App(ctk.CTk):
         self.generate_btn.configure(text=self.get_text("ready"))
         self.stop_btn.configure(text=self.get_text("stop"))
         self.logs_label.configure(text=self.get_text("logs"))
+        self.download_log_btn.configure(text=self.get_text("download_log"))
         self.batch_label.configure(text=self.get_text("batch"))
 
     def update_prompt_text(self):
@@ -424,6 +433,27 @@ class App(ctk.CTk):
         if directory:
             self.output_entry.delete(0, "end")
             self.output_entry.insert(0, directory)
+
+    def download_log(self):
+        content = self.log_text.get("0.0", "end")
+        if not content.strip(): return
+        
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        initial_file = f"log_{timestamp}.txt"
+        
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            initialfile=initial_file,
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
+        )
+        
+        if file_path:
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                self.log(f"Log saved to: {file_path}")
+            except Exception as e:
+                self.log(f"Error saving log: {e}")
 
     def log(self, message):
         try:

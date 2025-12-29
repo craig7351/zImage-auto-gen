@@ -1,5 +1,5 @@
-sunny
-rainy
-snow
-cloudy
-storm
+bright sunny day
+heavy rainy day
+falling snow
+overcast cloudy
+thunderstorm

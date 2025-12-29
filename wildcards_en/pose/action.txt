@@ -1,5 +1,13 @@
-walking
-running
-dancing
-fighting
-jumping
+walking briskly
+running fast
+dancing gracefully
+fighting stance
+jumping high
+flying in sky
+swimming underwater
+reading a book intently
+eating delicious food
+drinking coffee
+aiming and shooting
+casting magic spell
+singing passionately

@@ -1,5 +1,6 @@
-35mm
-50mm
-wide angle
-telephoto
-fisheye
+35mm storytelling lens
+50mm standard lens
+wide angle lens
+telephoto compression lens
+distorted fisheye lens
+gopro action view
