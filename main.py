@@ -4,31 +4,120 @@ import json
 import os
 import sys
 import glob
+import time
+import random
 from tkinter import filedialog, messagebox
 from comfy_api import ComfyClient
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
+# UI Translations
+TRANSLATIONS = {
+    "en": {
+        "title": "ComfyUI Client - Z Image Turbo",
+        "server": "Server:",
+        "output": "Output:",
+        "browse": "Browse",
+        "fixed_prompt": "Fixed Prompt:",
+        "preview": "Prompt Preview:",
+        "sync": "Sync",
+        "generate": "GENERATE",
+        "logs": "Logs:",
+        "generating": "Generating...",
+        "error_conn": "Error: IP and Port are required.",
+        "ready": "GENERATE",
+        "no_wildcards": "No wildcards found.",
+        "batch": "Count:",
+        "conn_start": "Connecting..."
+    },
+    "zh": {
+        "title": "ComfyUI 客戶端 - Z Image Turbo",
+        "server": "伺服器:",
+        "output": "輸出目錄:",
+        "browse": "瀏覽",
+        "fixed_prompt": "固定提示詞:",
+        "preview": "提示詞預覽:",
+        "sync": "同步",
+        "generate": "開始生成",
+        "logs": "執行紀錄:",
+        "generating": "生成中...",
+        "error_conn": "錯誤: 需要輸入 IP 和 Port",
+        "ready": "開始生成",
+        "no_wildcards": "找不到 Wildcards 資料。",
+        "batch": "張數:",
+        "conn_start": "連線中..."
+    }
+}
+
+# Label Translations
+LABEL_MAP_ZH = {
+    "subject": "1. 主題 (Subject)",
+    "face": "2. 臉部 (Face)",
+    "hair": "3. 髮型 (Hair)",
+    "body": "4. 身材 (Body)",
+    "outfit": "5. 服裝 (Outfit)",
+    "pose": "6. 姿勢 (Pose)",
+    "scene": "7. 場景 (Scene)",
+    "camera": "8. 鏡頭 (Camera)",
+    "lighting": "9. 光影 (Lighting)",
+    "style": "10. 風格 (Style)",
+    "control": "11. 控制 (Control)",
+    "negative": "12. 負面 (Negative)",
+    
+    "count": "人數", "type": "種族", "role": "職業/角色", "age": "年齡", "ethnicity": "膚色/種族", "vibe": "氣質",
+    "expression": "表情", "eyes_color": "瞳孔顏色", "eyes_shape": "眼型", "makeup": "妝容", "skin": "膚質", "special_marks": "特徵", "gaze": "視線",
+    "color": "髮色", "length": "長度", "style": "髮型", "details": "細節",
+    "height": "身高", "build": "體型", "posture": "儀態", "hands": "手部",
+    "theme/casual": "休閒", "theme/school": "制服", "theme/business": "職場", "theme/dress": "禮服", "theme/sporty": "運動", "theme/traditional": "傳統",
+    "top": "上衣", "bottom": "下身", "onepiece": "連身裝", "shoes": "鞋子", "accessories": "飾品", "color_palette": "色系", "material": "材質",
+    "base": "基礎", "action": "動作", "hand_pose": "手勢", "interaction": "互動", "dynamic": "動態",
+    "location/indoor": "室內", "location/outdoor": "室外",
+    "time": "時間", "weather": "天氣", "season": "季節", "background_detail": "背景細節", "props": "物件",
+    "shot_type": "景別", "angle": "角度", "lens": "鏡頭", "composition": "構圖", "depth_of_field": "景深",
+    "source": "光源", "mood": "氛圍", "color_temp": "色溫", "contrast": "對比",
+    "medium": "媒材", "genre": "流派", "render": "渲染", "art_direction": "美術", "quality_tags": "品質標籤",
+    "fixed_identity": "固定角色", "forbidden_mix": "禁止標籤", "prompt_syntax": "語法"
+}
+
+BATCH_OPTIONS = ["1", "4", "8", "16", "32", "64", "128", "256", "512"]
+
+CATEGORIES_ORDER = ["subject", "face", "hair", "body", "outfit", "pose", "scene", "camera", "lighting", "style", "control", "negative"]
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("ComfyUI Client - Z Image Turbo (Wildcard Edition)")
-        self.geometry("1100x800") # Increased size for new UI
-
-        # Data storage for wildcards: { category: { filename: [options] } }
-        # Flattened for nested directories as: { "outfit/theme": { "casual": [...] } } 
-        # But for UI, we want Tabs for top-level folders.
+        self.lang = "zh" 
         self.wildcards = {} 
+        self.selections = {} 
         
-        # UI State
-        self.selections = {} # { "subject/count": "1girl", ... }
+        self.current_category = None
+        self.nav_buttons = {} 
+        self.category_frames = {} 
+
+        self.title("ComfyUI Client")
+        self.geometry("1000x850") 
 
         self.load_workflow_template()
-        self.load_wildcards()
-        self.create_widgets()
         
+        self.create_widgets()
+        self.load_wildcards_and_refresh()
+
+    def get_text(self, key):
+        return TRANSLATIONS.get(self.lang, TRANSLATIONS["en"]).get(key, key)
+        
+    def get_label(self, key):
+        if self.lang == "zh":
+            if key in LABEL_MAP_ZH: return LABEL_MAP_ZH[key]
+            return LABEL_MAP_ZH.get(key, key.replace("_", " ").title())
+        return key.replace("_", " ").title()
+
+    def get_category_label(self, cat):
+        if self.lang == "zh":
+            return LABEL_MAP_ZH.get(cat, cat.title())
+        return cat.title()
+
     def load_workflow_template(self):
         try:
             if getattr(sys, 'frozen', False):
@@ -41,55 +130,55 @@ class App(ctk.CTk):
         except Exception as e:
             print(f"Error loading workflow: {e}")
 
-    def load_wildcards(self):
-        """Recursively scan 'wildcards' directory."""
-        base_dir = "wildcards"
-        if not os.path.exists(base_dir):
-            if getattr(sys, 'frozen', False):
-                 # Try to look in _MEIPASS if bundled? 
-                 # Usually external files are not in MEIPASS unless added. 
-                 # Assuming user keeps 'wildcards' folder next to EXE.
-                 pass
-            else:
-                os.makedirs(base_dir)
-                
-        # Structure: self.wildcards[main_category][sub_key] = [options]
-        # main_category = top level folder name (e.g., 'subject')
-        # sub_key = filename (no ext) OR relative path for nested (e.g., 'theme/casual')
+    def load_wildcards_and_refresh(self):
+        self.wildcards = {}
+        # Keep selections if keys match? For now reset to be safe
+        self.selections = {}
+        dir_name = "wildcards_zh" if self.lang == "zh" else "wildcards_en"
         
-        for root, dirs, files in os.walk(base_dir):
-            rel_path = os.path.relpath(root, base_dir)
-            if rel_path == ".": continue
+        base_dir = dir_name
+        if not os.path.exists(base_dir):
+            if os.path.exists("wildcards"): base_dir = "wildcards"
             
-            # Top level folder is the category/tab name
-            parts = rel_path.split(os.sep)
-            top_category = parts[0]
-            
-            if top_category not in self.wildcards:
-                self.wildcards[top_category] = {}
-            
-            # Sub-path within the category (e.g., 'theme' inside 'outfit')
-            sub_path = "/".join(parts[1:]) 
-            
-            for file in files:
-                if file.endswith(".txt"):
-                    key = os.path.splitext(file)[0]
-                    if sub_path:
-                        key = f"{sub_path}/{key}"
-                    
-                    full_path = os.path.join(root, file)
-                    with open(full_path, "r", encoding="utf-8") as f:
-                        lines = [line.strip() for line in f.readlines() if line.strip()]
-                        # Add empty option for deselection
-                        lines.insert(0, "") 
-                        self.wildcards[top_category][key] = lines
+        if os.path.exists(base_dir):
+            for root, dirs, files in os.walk(base_dir):
+                rel_path = os.path.relpath(root, base_dir)
+                if rel_path == ".": continue
+                
+                parts = rel_path.split(os.sep)
+                top_category = parts[0]
+                
+                if top_category not in self.wildcards:
+                    self.wildcards[top_category] = {}
+                
+                sub_path = "/".join(parts[1:]) 
+                
+                for file in files:
+                    if file.endswith(".txt"):
+                        key = os.path.splitext(file)[0]
+                        if sub_path:
+                            key = f"{sub_path}/{key}"
                         
+                        full_path = os.path.join(root, file)
+                        with open(full_path, "r", encoding="utf-8") as f:
+                            lines = [line.strip() for line in f.readlines() if line.strip()]
+                            lines.insert(0, "") 
+                            self.wildcards[top_category][key] = lines
+        
+        self.rebuild_navigation()
+
     def create_widgets(self):
-        # 1. Config Area (Top)
+        # 1. Config Area
         self.config_frame = ctk.CTkFrame(self)
         self.config_frame.pack(pady=5, padx=10, fill="x")
         
-        ctk.CTkLabel(self.config_frame, text="Server:").pack(side="left", padx=5)
+        self.lang_switch = ctk.CTkSegmentedButton(self.config_frame, values=["English", "中文"], command=self.on_lang_change)
+        self.lang_switch.set("中文")
+        self.lang_switch.pack(side="left", padx=5)
+
+        self.server_label = ctk.CTkLabel(self.config_frame, text="")
+        self.server_label.pack(side="left", padx=5)
+        
         self.ip_entry = ctk.CTkEntry(self.config_frame, width=100)
         self.ip_entry.insert(0, "127.0.0.1")
         self.ip_entry.pack(side="left", padx=2)
@@ -99,146 +188,205 @@ class App(ctk.CTk):
         self.port_entry.insert(0, "8188")
         self.port_entry.pack(side="left", padx=2)
         
-        ctk.CTkButton(self.config_frame, text="Browse Output", width=80, command=self.browse_output).pack(side="right", padx=5)
+        self.batch_label = ctk.CTkLabel(self.config_frame, text="Batch:")
+        self.batch_label.pack(side="left", padx=(15, 5))
+        self.batch_combo = ctk.CTkComboBox(self.config_frame, values=BATCH_OPTIONS, width=70)
+        self.batch_combo.set("1")
+        self.batch_combo.pack(side="left", padx=2)
+        
+        self.browse_btn = ctk.CTkButton(self.config_frame, text="", width=80, command=self.browse_output)
+        self.browse_btn.pack(side="right", padx=5)
+        
         self.output_entry = ctk.CTkEntry(self.config_frame, width=200)
-        self.output_entry.insert(0, "./output")
+        self.output_entry.insert(0, "../output")
         self.output_entry.pack(side="right", padx=5)
-        ctk.CTkLabel(self.config_frame, text="Output:").pack(side="right", padx=5)
+        self.output_label = ctk.CTkLabel(self.config_frame, text="")
+        self.output_label.pack(side="right", padx=5)
 
-        # 2. Main Content Area (Split: Left=Wildcards, Right=Preview/Log)
+        # 2. Main Content
         self.main_split = ctk.CTkFrame(self, fg_color="transparent")
         self.main_split.pack(pady=5, padx=10, fill="both", expand=True)
         
-        # Left: Wildcard Tabs
-        self.left_panel = ctk.CTkFrame(self.main_split, width=700)
-        self.left_panel.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        # Left Panel (Fixed Width)
+        self.left_panel = ctk.CTkFrame(self.main_split, width=450)
+        self.left_panel.pack(side="left", fill="both", expand=False, padx=(0, 5))
         
-        if self.wildcards:
-            self.tab_view = ctk.CTkTabview(self.left_panel)
-            self.tab_view.pack(fill="both", expand=True)
-            
-            # Sort keys to keep order consistent if desired, or relying on dict order
-            sorted_cats = sorted(self.wildcards.keys())
-            
-            # Specific order preference (optional)
-            order_pref = ["subject", "face", "hair", "body", "outfit", "pose", "scene", "camera", "lighting", "style", "control", "negative"]
-            # Reorder
-            sorted_cats = sorted(sorted_cats, key=lambda x: order_pref.index(x) if x in order_pref else 99)
-            
-            for category in sorted_cats:
-                self.tab_view.add(category)
-                self.create_tab_content(category)
-        else:
-            ctk.CTkLabel(self.left_panel, text="No wildcards found in 'wildcards/' folder.").pack(pady=20)
+        # Right Panel
+        self.right_panel = ctk.CTkFrame(self.main_split)
+        self.right_panel.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        
+        # --- Right Panel Widgets ---
+        
+        # Fixed Prompt
+        self.fixed_prompt_label = ctk.CTkLabel(self.right_panel, text="", anchor="w")
+        self.fixed_prompt_label.pack(pady=(5,0), anchor="w", padx=5)
+        
+        self.fixed_prompt_text = ctk.CTkTextbox(self.right_panel, height=60)
+        self.fixed_prompt_text.pack(pady=5, fill="x", padx=5)
+        # Re-trigger update when typing
+        self.fixed_prompt_text.bind("<KeyRelease>", lambda e: self.update_prompt_text())
 
-        # Right: Prompt Preview & Logs
-        self.right_panel = ctk.CTkFrame(self.main_split, width=350)
-        self.right_panel.pack(side="right", fill="both", padx=(5, 0))
+        # Preview
+        self.preview_label = ctk.CTkLabel(self.right_panel, text="", anchor="w")
+        self.preview_label.pack(pady=5, anchor="w", padx=5)
         
-        # Prompt Preview
-        ctk.CTkLabel(self.right_panel, text="Prompt Preview:").pack(pady=5, anchor="w")
         self.prompt_text = ctk.CTkTextbox(self.right_panel, height=200)
-        self.prompt_text.pack(pady=5, fill="x")
+        self.prompt_text.pack(pady=5, fill="x", padx=5)
         
-        # Buttons
         self.btn_frame = ctk.CTkFrame(self.right_panel, fg_color="transparent")
-        self.btn_frame.pack(pady=5, fill="x")
+        self.btn_frame.pack(pady=5, fill="x", padx=5)
         
-        self.refresh_btn = ctk.CTkButton(self.btn_frame, text="Sync from Selection", command=self.update_prompt_text)
+        self.refresh_btn = ctk.CTkButton(self.btn_frame, text="", command=self.update_prompt_text)
         self.refresh_btn.pack(side="left", fill="x", expand=True, padx=2)
         
-        self.generate_btn = ctk.CTkButton(self.btn_frame, text="GENERATE", fg_color="green", height=40, command=self.start_generation)
+        self.generate_btn = ctk.CTkButton(self.btn_frame, text="", fg_color="green", height=40, command=self.start_generation)
         self.generate_btn.pack(side="left", fill="x", expand=True, padx=2)
 
-        # Logs
-        ctk.CTkLabel(self.right_panel, text="Logs:").pack(pady=(10,0), anchor="w")
+        self.logs_label = ctk.CTkLabel(self.right_panel, text="", anchor="w")
+        self.logs_label.pack(pady=(10,0), anchor="w", padx=5)
+        
         self.log_text = ctk.CTkTextbox(self.right_panel)
-        self.log_text.pack(pady=5, fill="both", expand=True)
+        self.log_text.pack(pady=5, fill="both", expand=True, padx=5)
+        
+        # --- Left Panel Widgets (Nav + Content) ---
+        self.nav_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
+        self.nav_frame.pack(side="top", fill="x", pady=5)
+        
+        # We will pack the ScrollableFrames directly into left_panel below nav_frame
 
-    def create_tab_content(self, category):
-        tab = self.tab_view.tab(category)
+    def rebuild_navigation(self):
+        # Explicit clean of Navigation Frame
+        for widget in self.nav_frame.winfo_children():
+            widget.destroy()
         
-        # Use a scrollable frame inside tab
-        scroll = ctk.CTkScrollableFrame(tab)
-        scroll.pack(fill="both", expand=True)
+        # Robust clean of Left Panel content
+        for widget in self.left_panel.winfo_children():
+            if widget != self.nav_frame:
+                widget.destroy()
         
-        # Get items
-        items = self.wildcards[category]
-        # Sort items: simple files first, then subfolders (if any)
-        # items keys are like "color", "theme/casual"
+        self.category_frames.clear()
+        self.nav_buttons.clear()
         
-        # Grouping logic would be nice for visuals
-        # Just simple dynamic Grid for now
+        if not self.wildcards:
+            ctk.CTkLabel(self.left_panel, text=self.get_text("no_wildcards")).pack(pady=20)
+            return
+
+        sorted_cats = sorted(self.wildcards.keys())
+        sorted_cats = sorted(sorted_cats, key=lambda x: CATEGORIES_ORDER.index(x) if x in CATEGORIES_ORDER else 99)
+
+        # Create Navigation Buttons (Grid)
+        cols = 3
+        for i, category in enumerate(sorted_cats):
+            btn_text = self.get_category_label(category)
+            
+            row = i // cols
+            col = i % cols
+            
+            btn = ctk.CTkButton(self.nav_frame, text=btn_text, 
+                                fg_color="gray", 
+                                command=lambda c=category: self.show_category(c))
+            btn.grid(row=row, column=col, padx=2, pady=2, sticky="ew")
+            
+            self.nav_buttons[category] = btn
+
+            # Create Content Frame (Directly in left_panel)
+            frame = ctk.CTkScrollableFrame(self.left_panel)
+            self.category_frames[category] = frame
+            
+            # Populate Content
+            items = self.wildcards[category]
+            sorted_keys = sorted(items.keys())
+            
+            for key in sorted_keys:
+                options = items[key]
+                label_text = self.get_label(key)
+                
+                row_frame = ctk.CTkFrame(frame, fg_color="transparent")
+                row_frame.pack(side="top", fill="x", pady=2)
+                
+                ctk.CTkLabel(row_frame, text=label_text, width=100, anchor="e").pack(side="left", padx=5)
+                
+                full_key = f"{category}/{key}"
+                combo = ctk.CTkComboBox(row_frame, values=options, width=250, 
+                                        command=lambda val, k=full_key: self.on_selection_change(k, val))
+                combo.set("")
+                combo.pack(side="left", fill="x", expand=True, padx=5)
+                self.selections[full_key] = ""
+
+        # Configure Grid Weights
+        for i in range(cols):
+            self.nav_frame.grid_columnconfigure(i, weight=1)
+
+        self.update_ui_text()
         
-        row = 0
-        for key, options in items.items():
-            # key example: "theme/casual" or "count"
-            label_text = key.replace("_", " ").title()
+        if sorted_cats:
+            self.show_category(sorted_cats[0])
+
+    def show_category(self, category):
+        # Hide all first
+        for frame in self.category_frames.values():
+            frame.pack_forget()
+        
+        if category in self.category_frames:
+            self.category_frames[category].pack(side="top", fill="both", expand=True, padx=2, pady=2)
             
-            # Frame for each row
-            row_frame = ctk.CTkFrame(scroll, fg_color="transparent")
-            row_frame.pack(fill="x", pady=2)
-            
-            ctk.CTkLabel(row_frame, text=label_text, width=150, anchor="e").pack(side="left", padx=10)
-            
-            # Combobox
-            # We need to bind this to a variable or callback
-            # Use a callback with lambda to capture the key
-            
-            # Unique selection key: category/key
-            full_key = f"{category}/{key}"
-            
-            combo = ctk.CTkComboBox(row_frame, values=options, width=300, 
-                                    command=lambda val, k=full_key: self.on_selection_change(k, val))
-            combo.set("") # Default empty
-            combo.pack(side="left", fill="x", expand=True)
-            
-            # Initial state empty
-            self.selections[full_key] = ""
-            
-            row += 1
+        self.current_category = category
+        for cat, btn in self.nav_buttons.items():
+            if cat == category:
+                 btn.configure(fg_color=["#3B8ED0", "#1F6AA5"]) 
+            else:
+                 btn.configure(fg_color="transparent", border_width=1, text_color=("gray10", "gray90")) 
+
+    def on_lang_change(self, value):
+        self.lang = "zh" if value == "中文" else "en"
+        self.update_ui_text()
+        self.load_wildcards_and_refresh()
+        self.prompt_text.delete("0.0", "end")
+
+    def update_ui_text(self):
+        self.title(self.get_text("title"))
+        self.server_label.configure(text=self.get_text("server"))
+        self.output_label.configure(text=self.get_text("output"))
+        self.browse_btn.configure(text=self.get_text("browse"))
+        self.fixed_prompt_label.configure(text=self.get_text("fixed_prompt"))
+        self.preview_label.configure(text=self.get_text("preview"))
+        self.refresh_btn.configure(text=self.get_text("sync"))
+        self.generate_btn.configure(text=self.get_text("ready"))
+        self.logs_label.configure(text=self.get_text("logs"))
+        self.batch_label.configure(text=self.get_text("batch"))
 
     def on_selection_change(self, key, value):
         self.selections[key] = value
         self.update_prompt_text()
 
     def update_prompt_text(self):
-        # Gather all non-empty selections
-        # We can respect the order_pref to construct the prompt logically
-        
-        parts = []
-        
-        # Desired order of categories
-        cat_order = ["subject", "face", "hair", "body", "outfit", "pose", "scene", "camera", "lighting", "style", "control", "negative"]
-        
-        # We need to iterate through categories in order, then files in that category
-        # But self.selections is flat "cat/file".
-        
-        # Let's bucketize selections first
-        bucket = {c: [] for c in cat_order}
+        bucket = {c: [] for c in CATEGORIES_ORDER}
         others = []
         
         for full_key, val in self.selections.items():
             if not val: continue
-            
             cat = full_key.split("/")[0]
             if cat in bucket:
                 bucket[cat].append(val)
             else:
                 others.append(val)
-                
-        # Construct final string
+        
         final_parts = []
-        for cat in cat_order:
+        for cat in CATEGORIES_ORDER:
             if bucket[cat]:
-                # Add a comment/separator logic if needed, but simple join is best for prompt
                 final_parts.extend(bucket[cat])
-                
         final_parts.extend(others)
         
-        prompt_str = ", ".join(final_parts)
+        # Get Fixed Prompt
+        fixed = self.fixed_prompt_text.get("0.0", "end").strip()
         
-        # Update Textbox
+        prompt_parts = []
+        if fixed:
+            prompt_parts.append(fixed)
+        if final_parts:
+            prompt_parts.extend(final_parts)
+            
+        prompt_str = ", ".join(prompt_parts)
         self.prompt_text.delete("0.0", "end")
         self.prompt_text.insert("0.0", prompt_str)
 
@@ -249,59 +397,72 @@ class App(ctk.CTk):
             self.output_entry.insert(0, directory)
 
     def log(self, message):
-        self.log_text.configure(state="normal")
-        self.log_text.insert("end", message + "\n")
-        self.log_text.see("end")
-        self.log_text.configure(state="disabled")
+        try:
+            self.log_text.configure(state="normal")
+            self.log_text.insert("end", message + "\n")
+            self.log_text.see("end")
+            self.log_text.configure(state="disabled")
+        except:
+            pass
 
     def start_generation(self):
         ip = self.ip_entry.get()
         port = self.port_entry.get()
         output_dir = self.output_entry.get()
         prompt = self.prompt_text.get("0.0", "end").strip()
+        
+        try:
+            batch_count = int(self.batch_combo.get())
+        except:
+            batch_count = 1
 
         if not ip or not port:
-            self.log("Error: IP and Port are required.")
+            self.log(self.get_text("error_conn"))
             return
 
-        self.generate_btn.configure(state="disabled", text="Generating...")
-        thread = threading.Thread(target=self.run_generation, args=(ip, port, output_dir, prompt))
+        self.generate_btn.configure(state="disabled", text=self.get_text("generating"))
+        thread = threading.Thread(target=self.run_generation, args=(ip, port, output_dir, prompt, batch_count))
         thread.start()
 
-    def run_generation(self, ip, port, output_dir, prompt):
+    def run_generation(self, ip, port, output_dir, prompt, batch_count):
         try:
             client = ComfyClient(server_address=f"{ip}:{port}")
-            self.log(f"Connecting to {ip}:{port}...")
+            self.log(f"{self.get_text('conn_start')} {ip}:{port}...")
 
-            import copy
-            import random
-            
-            # 1. Build Payload
-            # Based on previous analysis of Z Image Turbo Workflow
-            prompt_workflow = {
-                "39": {"inputs": {"clip_name": "qwen_3_4b.safetensors", "type": "lumina2", "device": "default"}, "class_type": "CLIPLoader"},
-                "40": {"inputs": {"vae_name": "ae.safetensors"}, "class_type": "VAELoader"},
-                "46": {"inputs": {"unet_name": "z_image_turbo_bf16.safetensors", "weight_dtype": "default"}, "class_type": "UNETLoader"},
-                "41": {"inputs": {"width": 1024, "height": 1024, "batch_size": 1}, "class_type": "EmptySD3LatentImage"},
-                "45": {"inputs": {"text": prompt, "clip": ["39", 0]}, "class_type": "CLIPTextEncode"},
-                "42": {"inputs": {"conditioning": ["45", 0]}, "class_type": "ConditioningZeroOut"},
-                "47": {"inputs": {"model": ["46", 0], "shift": 3.0}, "class_type": "ModelSamplingAuraFlow"},
-                "44": {"inputs": {"model": ["47", 0], "positive": ["45", 0], "negative": ["42", 0], "latent_image": ["41", 0], "seed": random.randint(1, 10**15), "steps": 9, "cfg": 1.0, "sampler_name": "res_multistep", "scheduler": "simple", "denoise": 1.0}, "class_type": "KSampler"},
-                "43": {"inputs": {"samples": ["44", 0], "vae": ["40", 0]}, "class_type": "VAEDecode"},
-                "9": {"inputs": {"filename_prefix": "z-image", "images": ["43", 0]}, "class_type": "SaveImage"}
-            }
-            
-            self.log("Queuing prompt...")
-            result_files = client.generate(prompt_workflow, output_dir)
-            
-            self.log("Generation Complete!")
-            for f in result_files:
-                self.log(f"Saved: {f}")
+            if not client.connect():
+                 self.log(f"Failed to connect to {ip}:{port}")
+                 return
+
+            for i in range(batch_count):
+                self.log(f"--- Batch {i+1}/{batch_count} ---")
+                
+                seed_val = random.randint(1, 10**15)
+                
+                prompt_workflow = {
+                    "39": {"inputs": {"clip_name": "qwen_3_4b.safetensors", "type": "lumina2", "device": "default"}, "class_type": "CLIPLoader"},
+                    "40": {"inputs": {"vae_name": "ae.safetensors"}, "class_type": "VAELoader"},
+                    "46": {"inputs": {"unet_name": "z_image_turbo_bf16.safetensors", "weight_dtype": "default"}, "class_type": "UNETLoader"},
+                    "41": {"inputs": {"width": 1024, "height": 1024, "batch_size": 1}, "class_type": "EmptySD3LatentImage"},
+                    "45": {"inputs": {"text": prompt, "clip": ["39", 0]}, "class_type": "CLIPTextEncode"},
+                    "42": {"inputs": {"conditioning": ["45", 0]}, "class_type": "ConditioningZeroOut"},
+                    "47": {"inputs": {"model": ["46", 0], "shift": 3.0}, "class_type": "ModelSamplingAuraFlow"},
+                    "44": {"inputs": {"model": ["47", 0], "positive": ["45", 0], "negative": ["42", 0], "latent_image": ["41", 0], 
+                                      "seed": seed_val, 
+                                      "steps": 9, "cfg": 1.0, "sampler_name": "res_multistep", "scheduler": "simple", "denoise": 1.0}, "class_type": "KSampler"},
+                    "43": {"inputs": {"samples": ["44", 0], "vae": ["40", 0]}, "class_type": "VAEDecode"},
+                    "9": {"inputs": {"filename_prefix": "z-image", "images": ["43", 0]}, "class_type": "SaveImage"}
+                }
+                
+                result_files = client.generate(prompt_workflow, output_dir)
+                for f in result_files:
+                    self.log(f"Saved: {os.path.basename(f)}")
+                
+            self.log("All tasks completed!")
                 
         except Exception as e:
             self.log(f"Error: {str(e)}")
         finally:
-            self.generate_btn.configure(state="normal", text="GENERATE")
+            self.generate_btn.configure(state="normal", text=self.get_text("ready"))
 
 if __name__ == "__main__":
     app = App()
