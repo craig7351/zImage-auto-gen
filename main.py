@@ -127,8 +127,10 @@ class App(ctk.CTk):
         self.category_frames = {} 
         self.checkbox_vars = {} 
         self.category_frames = {} 
+        self.category_frames = {} 
         self.checkbox_vars = {} 
         self.comboboxes = {} 
+        self.group_vars = {}
         self.viewer_window = None
 
         self.title("ComfyUI Client")
@@ -170,6 +172,7 @@ class App(ctk.CTk):
         self.selections = {}
         self.checkbox_vars = {}
         self.comboboxes = {}
+        self.group_vars = {}
         
         dir_name = "wildcards_zh" if self.lang == "zh" else "wildcards_en"
         base_dir = dir_name
@@ -357,6 +360,13 @@ class App(ctk.CTk):
                 
                 row_frame = ctk.CTkFrame(frame, fg_color="transparent")
                 row_frame.pack(side="top", fill="x", pady=2)
+                
+                # Group Dropdown
+                group_opts = [""] + [str(i) for i in range(1, 11)]
+                group_var = ctk.StringVar(value="")
+                self.group_vars[full_key] = group_var
+                group_cbox = ctk.CTkComboBox(row_frame, values=group_opts, width=60, variable=group_var)
+                group_cbox.pack(side="left", padx=(5,2))
                 
                 rand_var = ctk.IntVar()
                 seq_var = ctk.IntVar()
@@ -651,30 +661,70 @@ class App(ctk.CTk):
 
                 self.log(f"--- Batch {i+1}/{batch_count} ---")
                 
-                current_prompt = prompt_template
+                # --- Prompt Resolution Logic ---
+                final_prompt = prompt_template
                 
-                random_matches = re.findall(r"__RANDOM__(.*?)__", current_prompt)
-                for match_key in random_matches:
-                    cat, key = match_key.split("/", 1)
-                    if cat in self.wildcards and key in self.wildcards[cat]:
-                        options = self.wildcards[cat][key]
-                        valid_options = [o for o in options if o]
-                        if valid_options:
-                            choice = random.choice(valid_options)
-                            current_prompt = current_prompt.replace(f"__RANDOM__{match_key}__", choice)
+                # 1. Group Logic: Determine winners and losers
+                group_keys = {} # "1" -> ["sets/casual", "sets/school"]
+                for full_key, var in self.group_vars.items():
+                    g_val = var.get()
+                    if g_val and g_val != "":
+                        if g_val not in group_keys: group_keys[g_val] = []
+                        group_keys[g_val].append(full_key)
                 
-                seq_matches = re.findall(r"__SEQUENTIAL__(.*?)__", current_prompt)
-                for match_key in seq_matches:
-                    cat, key = match_key.split("/", 1)
-                    if cat in self.wildcards and key in self.wildcards[cat]:
-                        options = self.wildcards[cat][key]
-                        valid_options = [o for o in options if o]
-                        if valid_options:
-                            choice = valid_options[i % len(valid_options)]
-                            current_prompt = current_prompt.replace(f"__SEQUENTIAL__{match_key}__", choice)
+                losers = set()
+                for gid, keys in group_keys.items():
+                    if keys:
+                        winner = random.choice(keys)
+                        for k in keys:
+                            if k != winner: losers.add(k)
 
-                self.log(f"Prompt: {current_prompt[:50]}...")
+                # 2. Token Logic: Find and replace
+                # We look for __RANDOM__KEY__ or __SEQUENTIAL__KEY__
+                tokens = re.findall(r"__(RANDOM|SEQUENTIAL)__([a-zA-Z0-9_/]+)__", final_prompt)
                 
+                # Pre-calculate path map for valid keys
+                path_map = {}
+                for cat_name, wildcards in self.wildcards.items():
+                    for key_name, options in wildcards.items():
+                        # Support both "cat/key" and just "key" if unique? 
+                        # Our system uses "cat/key" as the unique identifier in self.selections
+                        full_key = f"{cat_name}/{key_name}"
+                        path_map[full_key] = [o for o in options if o]
+
+                for mode, key in tokens:
+                    full_token = f"__{mode}__{key}__"
+                    
+                    # If this key is a loser in a group, remove it
+                    if key in losers:
+                        final_prompt = final_prompt.replace(full_token, "")
+                        continue
+
+                    # If not found in wildcards, skip (might be manual text)
+                    if key not in path_map:
+                        continue
+                        
+                    cats = path_map[key]
+                    repl_val = ""
+                    
+                    if not cats:
+                        repl_val = ""
+                    elif mode == "RANDOM":
+                        repl_val = random.choice(cats)
+                    elif mode == "SEQUENTIAL":
+                        idx = i % len(cats)
+                        repl_val = cats[idx]
+                        
+                    final_prompt = final_prompt.replace(full_token, repl_val, 1)
+
+                # 3. Cleanup
+                final_prompt = re.sub(r",\s*,", ",", final_prompt) # Remove double commas
+                final_prompt = re.sub(r"\s+", " ", final_prompt)   # Remove double spaces
+                final_prompt = final_prompt.strip().strip(",")
+                
+                self.log(f"Prompt: {final_prompt[:50]}...")
+                
+                # --- Workflow Execution ---
                 seed_val = random.randint(1, 10**15)
                 
                 prompt_workflow = {
@@ -682,7 +732,7 @@ class App(ctk.CTk):
                     "40": {"inputs": {"vae_name": "ae.safetensors"}, "class_type": "VAELoader"},
                     "46": {"inputs": {"unet_name": "z_image_turbo_bf16.safetensors", "weight_dtype": "default"}, "class_type": "UNETLoader"},
                     "41": {"inputs": {"width": 1024, "height": 1024, "batch_size": 1}, "class_type": "EmptySD3LatentImage"},
-                    "45": {"inputs": {"text": current_prompt, "clip": ["39", 0]}, "class_type": "CLIPTextEncode"},
+                    "45": {"inputs": {"text": final_prompt, "clip": ["39", 0]}, "class_type": "CLIPTextEncode"},
                     "42": {"inputs": {"conditioning": ["45", 0]}, "class_type": "ConditioningZeroOut"},
                     "47": {"inputs": {"model": ["46", 0], "shift": 3.0}, "class_type": "ModelSamplingAuraFlow"},
                     "44": {"inputs": {"model": ["47", 0], "positive": ["45", 0], "negative": ["42", 0], "latent_image": ["41", 0], 
@@ -719,12 +769,13 @@ class App(ctk.CTk):
                     try:
                         txt_path = os.path.splitext(final_image_path)[0] + ".txt"
                         with open(txt_path, "w", encoding="utf-8") as prompt_file:
-                            prompt_file.write(current_prompt)
+                            prompt_file.write(final_prompt)
                         self.log(f"Saved Prompt: {os.path.basename(txt_path)}")
                     except Exception as e:
                         self.log(f"Error saving prompt file: {str(e)}")
                 
             self.log("All tasks completed or stopped.")
+
                 
         except Exception as e:
             self.log(f"Error: {str(e)}")
