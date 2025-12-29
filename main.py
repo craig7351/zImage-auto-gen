@@ -8,6 +8,7 @@ import time
 import re
 import random
 from tkinter import filedialog, messagebox
+from PIL import Image
 from comfy_api import ComfyClient
 
 ctk.set_appearance_mode("System")
@@ -33,7 +34,10 @@ TRANSLATIONS = {
         "batch": "Count:",
         "conn_start": "Connecting...",
         "stopped": "Generation stopped by user.",
-        "download_log": "Download Log"
+        "download_log": "Download Log",
+        "webp_convert": "Convert WebP",
+        "compression": "Compression:",
+        "converted": "Converted to WebP (Q={})"
     },
     "zh": {
         "title": "ComfyUI 客戶端 - Z Image Turbo",
@@ -53,7 +57,10 @@ TRANSLATIONS = {
         "batch": "張數:",
         "conn_start": "連線中...",
         "stopped": "已由使用者停止生成。",
-        "download_log": "下載紀錄"
+        "download_log": "下載紀錄",
+        "webp_convert": "轉 WebP",
+        "compression": "壓縮率:",
+        "converted": "已轉為 WebP (品質={})"
     }
 }
 
@@ -204,6 +211,18 @@ class App(ctk.CTk):
         self.batch_combo = ctk.CTkComboBox(self.config_frame, values=BATCH_OPTIONS, width=70)
         self.batch_combo.set("1")
         self.batch_combo.pack(side="left", padx=2)
+
+        # WebP Settings
+        self.webp_var = ctk.BooleanVar(value=True)
+        self.webp_chk = ctk.CTkCheckBox(self.config_frame, text="WebP", variable=self.webp_var, width=60)
+        self.webp_chk.pack(side="left", padx=(15, 5))
+        
+        self.comp_label = ctk.CTkLabel(self.config_frame, text="Comp:")
+        self.comp_label.pack(side="left", padx=2)
+        
+        self.comp_combo = ctk.CTkComboBox(self.config_frame, values=["0%", "20%", "40%", "60%", "80%", "100%"], width=70)
+        self.comp_combo.set("20%")
+        self.comp_combo.pack(side="left", padx=2)
         
         self.browse_btn = ctk.CTkButton(self.config_frame, text="", width=80, command=self.browse_output)
         self.browse_btn.pack(side="right", padx=5)
@@ -393,6 +412,8 @@ class App(ctk.CTk):
         self.logs_label.configure(text=self.get_text("logs"))
         self.download_log_btn.configure(text=self.get_text("download_log"))
         self.batch_label.configure(text=self.get_text("batch"))
+        self.webp_chk.configure(text=self.get_text("webp_convert"))
+        self.comp_label.configure(text=self.get_text("compression"))
 
     def update_prompt_text(self):
         bucket = {c: [] for c in CATEGORIES_ORDER}
@@ -501,10 +522,16 @@ class App(ctk.CTk):
 
         self.stop_requested = False
         self.generate_btn.configure(state="disabled", text=self.get_text("generating"))
-        thread = threading.Thread(target=self.run_generation, args=(ip, port, output_dir, raw_prompt_template, batch_count))
+        
+        do_webp = self.webp_var.get()
+        comp_val_str = self.comp_combo.get().replace("%", "")
+        try: comp_val = int(comp_val_str)
+        except: comp_val = 20
+        
+        thread = threading.Thread(target=self.run_generation, args=(ip, port, output_dir, raw_prompt_template, batch_count, do_webp, comp_val))
         thread.start()
 
-    def run_generation(self, ip, port, output_dir, prompt_template, batch_count):
+    def run_generation(self, ip, port, output_dir, prompt_template, batch_count, do_webp, comp_val):
         try:
             client = ComfyClient(server_address=f"{ip}:{port}")
             self.log(f"{self.get_text('conn_start')} {ip}:{port}...")
@@ -564,6 +591,34 @@ class App(ctk.CTk):
                 result_files = client.generate(prompt_workflow, output_dir)
                 for f in result_files:
                     self.log(f"Saved: {os.path.basename(f)}")
+                    
+                    final_image_path = f
+                    
+                    # WebP Conversion
+                    if do_webp and f.lower().endswith(".png"):
+                        try:
+                            quality = max(1, 100 - comp_val)
+                            webp_path = os.path.splitext(f)[0] + ".webp"
+                            
+                            with Image.open(f) as img:
+                                img.save(webp_path, "WEBP", quality=quality)
+                            
+                            self.log(self.get_text("converted").format(quality))
+                            
+                            if os.path.exists(webp_path):
+                                os.remove(f)
+                                final_image_path = webp_path
+                        except Exception as e:
+                            self.log(f"WebP Error: {e}")
+
+                    # Save Prompt
+                    try:
+                        txt_path = os.path.splitext(final_image_path)[0] + ".txt"
+                        with open(txt_path, "w", encoding="utf-8") as prompt_file:
+                            prompt_file.write(current_prompt)
+                        self.log(f"Saved Prompt: {os.path.basename(txt_path)}")
+                    except Exception as e:
+                        self.log(f"Error saving prompt file: {str(e)}")
                 
             self.log("All tasks completed or stopped.")
                 
