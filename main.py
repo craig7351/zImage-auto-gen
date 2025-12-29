@@ -9,7 +9,9 @@ import re
 import random
 from tkinter import filedialog, messagebox
 from PIL import Image
+from PIL import Image
 from comfy_api import ComfyClient
+from image_viewer import ImageViewer
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -37,7 +39,13 @@ TRANSLATIONS = {
         "download_log": "Download Log",
         "webp_convert": "Convert WebP",
         "compression": "Compression:",
-        "converted": "Converted to WebP (Q={})"
+        "converted": "Converted to WebP (Q={})",
+        "viewer": "Image Viewer",
+        "export_wc": "Export Wildcards",
+        "import_wc": "Import Wildcards",
+        "export_success": "Wildcards exported successfully!",
+        "import_success": "Wildcards imported successfully! Refreshed.",
+        "import_confirm": "This will overwrite current wildcard files. Continue?"
     },
     "zh": {
         "title": "ComfyUI 客戶端 - Z Image Turbo",
@@ -60,7 +68,13 @@ TRANSLATIONS = {
         "download_log": "下載紀錄",
         "webp_convert": "轉 WebP",
         "compression": "壓縮率:",
-        "converted": "已轉為 WebP (品質={})"
+        "converted": "已轉為 WebP (品質={})",
+        "viewer": "看圖軟體",
+        "export_wc": "匯出設定",
+        "import_wc": "匯入設定",
+        "export_success": "Wildcards 匯出成功！",
+        "import_success": "Wildcards 匯入成功！已重新整理。",
+        "import_confirm": "這將會覆寫目前的 Wildcard 設定檔。確定要繼續嗎？"
     }
 }
 
@@ -111,7 +125,10 @@ class App(ctk.CTk):
         self.nav_buttons = {} 
         self.category_frames = {} 
         self.checkbox_vars = {} 
+        self.category_frames = {} 
+        self.checkbox_vars = {} 
         self.comboboxes = {} 
+        self.viewer_window = None
 
         self.title("ComfyUI Client")
         self.geometry("1000x850") 
@@ -191,8 +208,18 @@ class App(ctk.CTk):
         self.config_frame.pack(pady=5, padx=10, fill="x")
         
         self.lang_switch = ctk.CTkSegmentedButton(self.config_frame, values=["English", "中文"], command=self.on_lang_change)
+        self.lang_switch = ctk.CTkSegmentedButton(self.config_frame, values=["English", "中文"], command=self.on_lang_change)
         self.lang_switch.set("中文")
         self.lang_switch.pack(side="left", padx=5)
+
+        self.viewer_btn = ctk.CTkButton(self.config_frame, text="Viewer", width=80, command=self.open_viewer)
+        self.viewer_btn.pack(side="left", padx=5)
+
+        self.import_btn = ctk.CTkButton(self.config_frame, text="Import", width=80, command=self.import_wildcards)
+        self.import_btn.pack(side="left", padx=5)
+        
+        self.export_btn = ctk.CTkButton(self.config_frame, text="Export", width=80, command=self.export_wildcards)
+        self.export_btn.pack(side="left", padx=5)
 
         self.server_label = ctk.CTkLabel(self.config_frame, text="")
         self.server_label.pack(side="left", padx=5)
@@ -399,11 +426,21 @@ class App(ctk.CTk):
         self.load_wildcards_and_refresh()
         self.prompt_text.delete("0.0", "end")
 
+    def open_viewer(self):
+        if self.viewer_window is None or not self.viewer_window.winfo_exists():
+            # Use current output dir as default
+            current_out = self.output_entry.get()
+            if not os.path.isdir(current_out): current_out = "."
+            self.viewer_window = ImageViewer(self, initial_dir=current_out)
+        else:
+            self.viewer_window.focus()
+
     def update_ui_text(self):
         self.title(self.get_text("title"))
         self.server_label.configure(text=self.get_text("server"))
         self.output_label.configure(text=self.get_text("output"))
         self.browse_btn.configure(text=self.get_text("browse"))
+        self.viewer_btn.configure(text=self.get_text("viewer"))
         self.fixed_prompt_label.configure(text=self.get_text("fixed_prompt"))
         self.preview_label.configure(text=self.get_text("preview"))
         self.refresh_btn.configure(text=self.get_text("sync"))
@@ -414,6 +451,72 @@ class App(ctk.CTk):
         self.batch_label.configure(text=self.get_text("batch"))
         self.webp_chk.configure(text=self.get_text("webp_convert"))
         self.comp_label.configure(text=self.get_text("compression"))
+
+        self.export_btn.configure(text=self.get_text("export_wc"))
+        self.import_btn.configure(text=self.get_text("import_wc"))
+
+    def export_wildcards(self):
+        f = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
+        if not f: return
+        
+        base_dir = "wildcards_zh" if self.lang == "zh" else "wildcards_en"
+        data = {}
+        
+        if os.path.exists(base_dir):
+            for root, dirs, files in os.walk(base_dir):
+                for file in files:
+                    if file.endswith(".txt"):
+                        full_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(full_path, base_dir)
+                        # Normalize separators to / for JSON
+                        key = rel_path.replace(os.sep, "/")
+                        try:
+                            with open(full_path, "r", encoding="utf-8") as tf:
+                                lines = [l.strip() for l in tf.readlines() if l.strip()]
+                                data[key] = lines
+                        except Exception as e:
+                            print(f"Error reading {full_path}: {e}")
+                            
+        try:
+            with open(f, "w", encoding="utf-8") as jf:
+                json.dump(data, jf, indent=2, ensure_ascii=False)
+            messagebox.showinfo("Success", self.get_text("export_success"))
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def import_wildcards(self):
+        f = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+        if not f: return
+        
+        if not messagebox.askyesno("Confirm", self.get_text("import_confirm")):
+            return
+            
+        base_dir = "wildcards_zh" if self.lang == "zh" else "wildcards_en"
+        
+        try:
+            with open(f, "r", encoding="utf-8") as jf:
+                data = json.load(jf)
+                
+            for key, lines in data.items():
+                # key is rel path e.g. "scene/location/outdoor.txt" or just "outdoor.txt" if flat?
+                # current logic supports nested dirs.
+                # ensure key uses correct sep
+                norm_key = key.replace("/", os.sep)
+                target_path = os.path.join(base_dir, norm_key)
+                
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                
+                with open(target_path, "w", encoding="utf-8") as tf:
+                    # join with newlines
+                    content = "\n".join(lines)
+                    tf.write(content)
+                    
+            self.load_wildcards_and_refresh()
+            messagebox.showinfo("Success", self.get_text("import_success"))
+            
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
     def update_prompt_text(self):
         bucket = {c: [] for c in CATEGORIES_ORDER}
