@@ -1,35 +1,53 @@
-name: Build EXE
+name: Build and Release
 
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+  release:
+    types: [ created ]
 
 jobs:
   build:
     runs-on: windows-latest
-
+    
     steps:
     - uses: actions/checkout@v4
-
+    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-
+        
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --name "ComfyUI-Client" --icon "NONE" --add-data "workflow_template.json;." main.py
-
-    - name: Upload Artifact
+        pyinstaller main.py --name "Z-Image-Turbo" --onefile --windowed --add-data "workflow_template.json;."
+        
+    - name: Organize Artifacts
+      run: |
+        mkdir release_dist
+        copy dist\Z-Image-Turbo.exe release_dist\
+        xcopy wildcards_zh release_dist\wildcards_zh\ /E /I
+        xcopy wildcards_en release_dist\wildcards_en\ /E /I
+        copy README.md release_dist\
+        
+    - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ComfyUI-Client-EXE
-        path: dist/ComfyUI-Client.exe
+        name: Z-Image-Turbo-Build
+        path: release_dist/
+        
+    - name: Zip Release
+      if: github.event_name == 'release'
+      run: |
+        powershell Compress-Archive -Path release_dist/* -DestinationPath Z-Image-Turbo.zip
+        
+    - name: Upload Release Asset
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: Z-Image-Turbo.zip

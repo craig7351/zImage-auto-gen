@@ -174,10 +174,18 @@ class App(ctk.CTk):
         self.comboboxes = {}
         self.group_vars = {}
         
+        if getattr(sys, 'frozen', False):
+            app_dir = os.path.dirname(sys.executable)
+        else:
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            
         dir_name = "wildcards_zh" if self.lang == "zh" else "wildcards_en"
-        base_dir = dir_name
+        base_dir = os.path.join(app_dir, dir_name)
+        
         if not os.path.exists(base_dir):
-            if os.path.exists("wildcards"): base_dir = "wildcards"
+            # Fallback check
+            if os.path.exists(os.path.join(app_dir, "wildcards")): 
+                base_dir = os.path.join(app_dir, "wildcards")
             
         if os.path.exists(base_dir):
             for root, dirs, files in os.walk(base_dir):
