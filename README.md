@@ -1,45 +1,6 @@
 # Z-Image-Turbo (ComfyUI Client)
 
-[English](#english) | [繁體中文](#traditional-chinese)
-
----
-
-<a name="english"></a>
-## English
-
-A powerful and user-friendly client for ComfyUI, designed for efficient image generation with advanced wildcard management.
-
-### Key Features
-
-*   **ComfyUI Integration**: Connects seamlessly to your local ComfyUI server.
-*   **Wildcard System**: Robust prompt generation using configurable wildcards.
-    *   **Group Selection**: Organize wildcards into groups (1-10). Items in the same group with the "Random (?)" option checked are mutually exclusive (only one is selected per generation).
-    *   **Dynamic Editing**: Edit the generated prompt code (e.g., `__RANDOM__outfit__`) directly in the preview window before generation.
-    *   **Real-time Updates**: Changes to the prompt preview are applied immediately to the next image in the batch.
-*   **Multilingual Support**: Fully supports **English** and **Traditional Chinese** interfaces, with **Traditional Chinese as the default**.
-*   **Built-in Image Viewer**:
-    *   Dedicated window for browsing generated images.
-    *   Thumbnail list and scalable preview.
-    *   **Prompt Copy**: One-click copy of the generation prompt and settings.
-*   **Batch Generation**: Support for batch processing (1-512 images) with optional stop functionality.
-*   **WebP Conversion**: Automatic conversion to WebP format to save disk space.
-*   **Prompt Logging**: Automatically saves the full prompt used for each image to a text file.
-*   **Portable**: Can be built into a standalone executable (EXE) via GitHub Actions.
-
-### Installation
-
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/craig7351/zImage-auto-gen.git
-    ```
-2.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-3.  Run the application:
-    ```bash
-    python main.py
-    ```
+[繁體中文](#traditional-chinese) | [English](#english)
 
 ---
 
@@ -76,6 +37,45 @@ A powerful and user-friendly client for ComfyUI, designed for efficient image ge
     pip install -r requirements.txt
     ```
 3.  執行程式:
+    ```bash
+    python main.py
+    ```
+
+---
+
+<a name="english"></a>
+## English
+
+A powerful and user-friendly client for ComfyUI, designed for efficient image generation with advanced wildcard management.
+
+### Key Features
+
+*   **ComfyUI Integration**: Connects seamlessly to your local ComfyUI server.
+*   **Wildcard System**: Robust prompt generation using configurable wildcards.
+    *   **Group Selection**: Organize wildcards into groups (1-10). Items in the same group with the "Random (?)" option checked are mutually exclusive (only one is selected per generation).
+    *   **Dynamic Editing**: Edit the generated prompt code (e.g., `__RANDOM__outfit__`) directly in the preview window before generation.
+    *   **Real-time Updates**: Changes to the prompt preview are applied immediately to the next image in the batch.
+*   **Multilingual Support**: Fully supports **English** and **Traditional Chinese** interfaces, with **Traditional Chinese as the default**.
+*   **Built-in Image Viewer**:
+    *   Dedicated window for browsing generated images.
+    *   Thumbnail list and scalable preview.
+    *   **Prompt Copy**: One-click copy of the generation prompt and settings.
+*   **Batch Generation**: Support for batch processing (1-512 images) with optional stop functionality.
+*   **WebP Conversion**: Automatic conversion to WebP format to save disk space.
+*   **Prompt Logging**: Automatically saves the full prompt used for each image to a text file.
+*   **Portable**: Can be built into a standalone executable (EXE) via GitHub Actions.
+
+### Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/craig7351/zImage-auto-gen.git
+    ```
+2.  Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+3.  Run the application:
     ```bash
     python main.py
     ```
