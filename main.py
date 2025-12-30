@@ -538,11 +538,11 @@ class App(ctk.CTk):
             
             display_val = val
             if val.startswith("__RANDOM__"):
-                label_key = full_key.split("/", 1)[1]
-                display_val = f"<Random: {self.get_label(label_key)}>"
+                # Display raw token for correct parsing during generation
+                display_val = val 
             elif val.startswith("__SEQUENTIAL__"):
-                label_key = full_key.split("/", 1)[1]
-                display_val = f"<Seq: {self.get_label(label_key)}>"
+                # Display raw token for correct parsing during generation
+                display_val = val
 
             cat = full_key.split("/")[0]
             if cat in bucket: bucket[cat].append(display_val)
@@ -645,6 +645,21 @@ class App(ctk.CTk):
         thread = threading.Thread(target=self.run_generation, args=(ip, port, output_dir, raw_prompt_template, batch_count, do_webp, comp_val))
         thread.start()
 
+    def get_prompt_content_safe(self):
+        result = [""]
+        done_event = threading.Event()
+        
+        def safe_read():
+            try:
+                # CTkTextbox / Tkinter Text starts at 1.0, not 0.0
+                result[0] = self.prompt_text.get("1.0", "end").strip()
+            except: pass
+            done_event.set()
+            
+        self.after(0, safe_read)
+        done_event.wait()
+        return result[0]
+
     def run_generation(self, ip, port, output_dir, prompt_template, batch_count, do_webp, comp_val):
         try:
             client = ComfyClient(server_address=f"{ip}:{port}")
@@ -662,7 +677,12 @@ class App(ctk.CTk):
                 self.log(f"--- Batch {i+1}/{batch_count} ---")
                 
                 # --- Prompt Resolution Logic ---
-                final_prompt = prompt_template
+                # Retrieve current text from UI dynamically
+                current_ui_prompt = self.get_prompt_content_safe()
+                if not current_ui_prompt:
+                    current_ui_prompt = prompt_template # Fallback if read failed
+                    
+                final_prompt = current_ui_prompt
                 
                 # 1. Group Logic: Determine winners and losers
                 group_keys = {} # "1" -> ["sets/casual", "sets/school"]
@@ -722,7 +742,7 @@ class App(ctk.CTk):
                 final_prompt = re.sub(r"\s+", " ", final_prompt)   # Remove double spaces
                 final_prompt = final_prompt.strip().strip(",")
                 
-                self.log(f"Prompt: {final_prompt[:50]}...")
+                self.log(f"Prompt: {final_prompt}")
                 
                 # --- Workflow Execution ---
                 seed_val = random.randint(1, 10**15)
